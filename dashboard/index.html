@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Almeida Net Shop — Painel de Controlo</title>
+  <meta name="description" content="Painel de gestão de mensagens do bot WhatsApp Almeida Net Shop." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:            #08080f;
+      --bg2:           #0f0f1a;
+      --surface:       rgba(255,255,255,0.04);
+      --surface-h:     rgba(255,255,255,0.07);
+      --border:        rgba(255,255,255,0.08);
+      --border-h:      rgba(255,255,255,0.18);
+      --text:          #f1f5f9;
+      --text2:         #94a3b8;
+      --muted:         #475569;
+      --a1:            #7c3aed;
+      --a2:            #2563eb;
+      --success:       #10b981;
+      --error:         #ef4444;
+      --radius:        14px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Ambient orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 { width: 500px; height: 500px; top: -15%; left: -10%;  background: rgba(124,58,237,0.12); }
+    .orb-2 { width: 400px; height: 400px; bottom: -15%; right: -8%; background: rgba(37,99,235,0.10); }
+
+    /* Header */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(8,8,15,0.82);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      height: 64px;
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .logo { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .logo-name {
+      font-weight: 700; font-size: 0.95rem;
+      background: linear-gradient(135deg, #c4b5fd, #93c5fd);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .logo-sub { font-size: 0.68rem; color: var(--muted); margin-top: -1px; }
+
+    .header-right { display: flex; align-items: center; gap: 0.75rem; }
+
+    #headerSessionBadge {
+      display: none;
+      font-size: 0.78rem;
+      color: var(--text2);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      white-space: nowrap;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-ghost {
+      display: none;
+      background: transparent;
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #f87171;
+      padding: 0.35rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-ghost:hover { background: rgba(239,68,68,0.1); border-color: #ef4444; }
+
+    /* Main */
+    main {
+      position: relative; z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    /* Views */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── SELECT VIEW ─────────────────────────────── */
+    .hero {
+      text-align: center;
+      margin-bottom: 3rem;
+      animation: fadeUp 0.5s ease both;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.25);
+      color: #c4b5fd;
+      font-size: 0.75rem; font-weight: 500;
+      padding: 0.35rem 0.9rem;
+      border-radius: 20px;
+      margin-bottom: 1.2rem;
+    }
+    .hero h1 {
+      font-size: 2.2rem; font-weight: 800; line-height: 1.2;
+      background: linear-gradient(135deg, #f1f5f9, #c4b5fd 50%, #93c5fd);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 0.75rem;
+    }
+    .hero p { color: var(--text2); font-size: 0.95rem; max-width: 480px; margin: 0 auto; }
+
+    .sessions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .session-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.4rem 1.25rem 1.6rem;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+      animation: fadeUp 0.5s ease both;
+    }
+    .session-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(124,58,237,0.06), rgba(37,99,235,0.04));
+      opacity: 0; transition: opacity 0.25s;
+    }
+    .session-card:hover {
+      border-color: rgba(124,58,237,0.35);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(124,58,237,0.12);
+    }
+    .session-card:hover::after { opacity: 1; }
+    .session-card.is-disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
+
+    .card-top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .card-num {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1.05rem;
+    }
+
+    .dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      margin-top: 4px;
+    }
+    .dot-on  { background: var(--success); box-shadow: 0 0 8px rgba(16,185,129,0.6); animation: blink 2s infinite; }
+    .dot-off { background: var(--muted); }
+
+    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+    .card-name { font-weight: 600; font-size: 0.88rem; color: var(--text); margin-bottom: 0.25rem; }
+    .card-status { font-size: 0.73rem; color: var(--muted); }
+
+    .card-arrow {
+      position: absolute; bottom: 1.1rem; right: 1.1rem;
+      color: var(--muted); font-size: 1.1rem;
+      transition: all 0.2s;
+    }
+    .session-card:hover .card-arrow { color: #a78bfa; transform: translateX(4px); }
+
+    /* ── EDITOR VIEW ─────────────────────────────── */
+    .editor-head {
+      margin-bottom: 2.5rem;
+      animation: fadeUp 0.4s ease both;
+    }
+    .editor-head h1 {
+      font-size: 1.65rem; font-weight: 700; margin-bottom: 0.3rem;
+      background: linear-gradient(135deg, #f1f5f9, #c4b5fd);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .editor-head p { color: var(--text2); font-size: 0.88rem; }
+
+    .editors-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.75rem;
+      animation: fadeUp 0.45s ease both;
+    }
+    @media (max-width: 700px) { .editors-grid { grid-template-columns: 1fr; } }
+
+    .editor-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: border-color 0.2s;
+    }
+    .editor-card:focus-within {
+      border-color: rgba(124,58,237,0.4);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.08);
+    }
+
+    .editor-card-top {
+      padding: 0.9rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      display: flex; align-items: center; gap: 0.55rem;
+    }
+    .editor-card-icon { font-size: 1rem; }
+    .editor-card-title { font-weight: 600; font-size: 0.85rem; }
+    .editor-card-hint {
+      font-size: 0.7rem; color: var(--muted);
+      margin-left: auto;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      padding: 0.15rem 0.5rem;
+      border-radius: 10px;
+    }
+
+    .editor-ta {
+      flex: 1;
+      width: 100%;
+      background: transparent;
+      border: none; outline: none;
+      padding: 1.1rem;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8rem; line-height: 1.65;
+      color: var(--text);
+      resize: vertical;
+      min-height: 300px;
+      transition: background 0.2s;
+    }
+    .editor-ta:focus { background: rgba(124,58,237,0.03); }
+
+    .editor-footer {
+      padding: 0.45rem 1.1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.7rem; color: var(--muted);
+      text-align: right;
+    }
+
+    /* Save row */
+    .save-row {
+      display: flex; justify-content: flex-end; align-items: center; gap: 1.25rem;
+      animation: fadeUp 0.5s ease both;
+    }
+    #saveStatusText { font-size: 0.8rem; color: var(--muted); }
+
+    .btn-save {
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      border: none; border-radius: 10px;
+      padding: 0.8rem 2.2rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem; font-weight: 600;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; gap: 0.5rem;
+      transition: all 0.2s;
+    }
+    .btn-save:hover:not(:disabled) {
+      opacity: 0.88;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(124,58,237,0.45);
+    }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ── MODAL ───────────────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(10px);
+      z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.25rem;
+      width: 100%; max-width: 390px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.65);
+      animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    @keyframes popIn {
+      from { opacity:0; transform: scale(0.88) translateY(24px); }
+      to   { opacity:1; transform: scale(1)    translateY(0);    }
+    }
+
+    .modal-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(37,99,235,0.15));
+      border: 1px solid rgba(124,58,237,0.28);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; margin-bottom: 1.3rem;
+    }
+    .modal h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.35rem; }
+    .modal-sub { color: var(--muted); font-size: 0.83rem; margin-bottom: 1.7rem; line-height: 1.5; }
+
+    .field-label {
+      display: block; font-size: 0.78rem; font-weight: 500;
+      color: var(--text2); margin-bottom: 0.45rem;
+    }
+    .field-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.72rem 1rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.88rem; color: var(--text);
+      outline: none; transition: all 0.2s;
+    }
+    .field-input:focus {
+      border-color: var(--a1);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.14);
+      background: rgba(124,58,237,0.04);
+    }
+    .field-input.err { border-color: var(--error); box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
+
+    .err-msg { font-size: 0.74rem; color: var(--error); margin-top: 0.4rem; display: none; }
+    .err-msg.show { display: block; }
+
+    .btn-primary {
+      width: 100%; margin-top: 1.25rem;
+      background: linear-gradient(135deg, var(--a1), var(--a2));
+      border: none; border-radius: 10px;
+      padding: 0.82rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.88rem; font-weight: 600;
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      transition: all 0.2s;
+    }
+    .btn-primary:hover:not(:disabled) {
+      opacity: 0.88;
+      box-shadow: 0 8px 24px rgba(124,58,237,0.4);
+    }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-outline {
+      width: 100%; margin-top: 0.5rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.65rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.82rem; color: var(--muted);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-outline:hover { border-color: var(--border-h); color: var(--text2); }
+
+    /* ── TOAST ───────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 400;
+      background: #13131f;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.9rem 1.4rem;
+      display: flex; align-items: center; gap: 0.7rem;
+      font-size: 0.85rem;
+      box-shadow: 0 20px 48px rgba(0,0,0,0.6);
+      max-width: 360px;
+      transform: translateY(80px); opacity: 0;
+      transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+      pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+    .toast.t-success { border-left: 3px solid var(--success); }
+    .toast.t-error   { border-left: 3px solid var(--error); }
+
+    /* ── SPINNER ─────────────────────────────────── */
+    .spin {
+      width: 17px; height: 17px;
+      border: 2px solid rgba(255,255,255,0.28);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spinning 0.65s linear infinite;
+    }
+    @keyframes spinning { to { transform: rotate(360deg); } }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(18px); }
+      to   { opacity:1; transform: translateY(0);    }
+    }
+
+    /* Responsive */
+    @media (max-width: 540px) {
+      main { padding: 2rem 1rem; }
+      .hero h1 { font-size: 1.65rem; }
+      .modal { margin: 1rem; padding: 1.75rem; }
+      .btn-save { padding: 0.78rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- ── HEADER ─────────────────────────────── -->
+<header>
+  <a class="logo" href="#" onclick="goHome(); return false;">
+    <div class="logo-icon">🌐</div>
+    <div>
+      <div class="logo-name">Almeida Net Shop</div>
+      <div class="logo-sub">Painel de Controlo</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <span id="headerSessionBadge">—</span>
+    <button class="btn-ghost" id="btnLogout" onclick="logout()">↩ Sair</button>
+  </div>
+</header>
+
+<!-- ── MAIN ───────────────────────────────── -->
+<main>
+
+  <!-- VIEW: Selecção de Sessão -->
+  <div class="view active" id="viewSelect">
+    <div class="hero">
+      <div class="hero-badge">🤖 Atendimento Automático WhatsApp</div>
+      <h1>Bem-vindo ao Painel 👋</h1>
+      <p>Selecione o número que pretende gerir e introduza a sua senha de acesso para editar as mensagens.</p>
+    </div>
+    <div class="sessions-grid" id="sessionsGrid">
+      <!-- Cards injectados via JS -->
+    </div>
+  </div>
+
+  <!-- VIEW: Editor de Mensagens -->
+  <div class="view" id="viewEditor">
+    <div class="editor-head">
+      <h1 id="editorTitle">Gerir Mensagens</h1>
+      <p>As alterações guardadas entram em vigor <strong>imediatamente</strong> — o bot passa a usar os novos textos sem necessidade de reiniciar.</p>
+    </div>
+
+    <div class="editors-grid">
+      <!-- Editor 1: Tabela de Pacotes -->
+      <div class="editor-card">
+        <div class="editor-card-top">
+          <span class="editor-card-icon">📦</span>
+          <span class="editor-card-title">Tabela de Pacotes</span>
+          <span class="editor-card-hint">1ª mensagem</span>
+        </div>
+        <textarea class="editor-ta" id="taPackages"
+          placeholder="Escreva aqui a tabela de pacotes e preços..."></textarea>
+        <div class="editor-footer" id="countPackages">0 caracteres</div>
+      </div>
+
+      <!-- Editor 2: Formas de Pagamento -->
+      <div class="editor-card">
+        <div class="editor-card-top">
+          <span class="editor-card-icon">💳</span>
+          <span class="editor-card-title">Formas de Pagamento</span>
+          <span class="editor-card-hint">2ª mensagem</span>
+        </div>
+        <textarea class="editor-ta" id="taPayment"
+          placeholder="Escreva aqui as formas de pagamento e avisos..."></textarea>
+        <div class="editor-footer" id="countPayment">0 caracteres</div>
+      </div>
+    </div>
+
+    <div class="save-row">
+      <span id="saveStatusText"></span>
+      <button class="btn-save" id="btnSave" onclick="saveChanges()">
+        💾 Guardar Alterações
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── MODAL: Senha ───────────────────────── -->
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-icon">🔐</div>
+    <h2 id="modalTitle">Acesso Protegido</h2>
+    <p class="modal-sub" id="modalSub">Introduza a senha para gerir este número.</p>
+
+    <label class="field-label" for="pwInput">Senha de Acesso</label>
+    <input type="password" class="field-input" id="pwInput"
+           placeholder="••••••••" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') doLogin()" />
+    <div class="err-msg" id="pwErr">Senha incorrecta. Tente novamente.</div>
+
+    <button class="btn-primary" id="btnLoginModal" onclick="doLogin()">🔓 Entrar</button>
+    <button class="btn-outline" onclick="closeModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────── -->
+<div class="toast" id="toast">
+  <span id="toastIcon">✅</span>
+  <span id="toastMsg">Mensagem</span>
+</div>
+
+<script>
+  /* ── Estado global ──────────────────────────────────── */
+  const API = window.location.origin;
+  let sessions     = [];
+  let activeSess   = null;   // { id, name, enabled }
+  let activePass   = null;
+  let pendingSess  = null;   // sessão escolhida no card
+  let toastTimer   = null;
+
+  /* ── Arranque ───────────────────────────────────────── */
+  async function init() {
+    try {
+      const r    = await fetch(`${API}/api/sessions`);
+      const data = await r.json();
+      sessions   = data.sessions || [];
+      renderCards();
+    } catch {
+      showToast('Não foi possível conectar ao servidor. Verifique se o bot está em execução.', 'error');
+    }
+  }
+
+  /* ── Render dos cards ───────────────────────────────── */
+  function renderCards() {
+    const grid = document.getElementById('sessionsGrid');
+    grid.innerHTML = '';
+
+    sessions.forEach((s, i) => {
+      const card = document.createElement('div');
+      card.className = 'session-card' + (s.enabled ? '' : ' is-disabled');
+      card.style.animationDelay = `${i * 0.07}s`;
+      card.setAttribute('tabindex', s.enabled ? '0' : '-1');
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `Gerir ${s.name}`);
+      card.onclick = () => openModal(s);
+      card.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') openModal(s); };
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="card-num">${i + 1}</div>
+          <div class="dot ${s.enabled ? 'dot-on' : 'dot-off'}"></div>
+        </div>
+        <div class="card-name">${escHtml(s.name)}</div>
+        <div class="card-status">${s.enabled ? '● Activo' : '○ Inactivo'}</div>
+        <div class="card-arrow">→</div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  /* ── Modal ──────────────────────────────────────────── */
+  function openModal(sess) {
+    pendingSess = sess;
+    document.getElementById('modalSub').textContent =
+      `Introduza a senha para gerir: ${sess.name}`;
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').classList.remove('err');
+    document.getElementById('pwErr').classList.remove('show');
+    document.getElementById('overlay').classList.add('open');
+    setTimeout(() => document.getElementById('pwInput').focus(), 280);
+  }
+
+  function closeModal() {
+    document.getElementById('overlay').classList.remove('open');
+    pendingSess = null;
+  }
+
+  async function doLogin() {
+    const pw = document.getElementById('pwInput').value.trim();
+    if (!pw) { document.getElementById('pwInput').focus(); return; }
+
+    const btn = document.getElementById('btnLoginModal');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spin"></div> A verificar...';
+
+    try {
+      const r = await fetch(`${API}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: pendingSess.id, password: pw })
+      });
+      const data = await r.json();
+
+      if (r.ok && data.success) {
+        activeSess  = data.session;
+        activePass  = pw;
+        closeModal();
+        openEditor(data.menu);
+      } else {
+        document.getElementById('pwInput').classList.add('err');
+        document.getElementById('pwErr').classList.add('show');
+        document.getElementById('pwInput').select();
+      }
+    } catch {
+      showToast('Erro de conexão ao servidor.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🔓 Entrar';
+    }
+  }
+
+  /* ── Editor ─────────────────────────────────────────── */
+  function openEditor(menu) {
+    const taP = document.getElementById('taPackages');
+    const taY = document.getElementById('taPayment');
+
+    taP.value = menu.packagesTable  || '';
+    taY.value = menu.paymentMethods || '';
+    updateCount('taPackages',  'countPackages');
+    updateCount('taPayment',   'countPayment');
+
+    taP.addEventListener('input', () => updateCount('taPackages', 'countPackages'));
+    taY.addEventListener('input', () => updateCount('taPayment',  'countPayment'));
+
+    document.getElementById('editorTitle').textContent =
+      `Gerir: ${activeSess.name}`;
+    document.getElementById('headerSessionBadge').textContent = activeSess.name;
+    document.getElementById('headerSessionBadge').style.display = 'block';
+    document.getElementById('btnLogout').style.display         = 'block';
+    document.getElementById('saveStatusText').textContent = '';
+
+    document.getElementById('viewSelect').classList.remove('active');
+    document.getElementById('viewEditor').classList.add('active');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateCount(taId, countId) {
+    const n = document.getElementById(taId).value.length;
+    document.getElementById(countId).textContent =
+      `${n.toLocaleString('pt-PT')} caracter${n !== 1 ? 'es' : ''}`;
+  }
+
+  async function saveChanges() {
+    const packagesTable  = document.getElementById('taPackages').value;
+    const paymentMethods = document.getElementById('taPayment').value;
+
+    const btn = document.getElementById('btnSave');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spin"></div> A guardar...';
+
+    try {
+      const r = await fetch(`${API}/api/session/${activeSess.id}/menu`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-password': activePass
+        },
+        body: JSON.stringify({ packagesTable, paymentMethods })
+      });
+      const data = await r.json();
+
+      if (r.ok) {
+        const now = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('saveStatusText').textContent = `✓ Guardado às ${now}`;
+        showToast('Alterações guardadas! O bot já usa os novos textos.', 'success');
+      } else {
+        showToast(`Erro: ${data.error}`, 'error');
+      }
+    } catch {
+      showToast('Erro de conexão. Verifique o servidor.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '💾 Guardar Alterações';
+    }
+  }
+
+  /* ── Logout / Navegação ─────────────────────────────── */
+  function logout() {
+    activeSess = null;
+    activePass = null;
+    document.getElementById('headerSessionBadge').style.display = 'none';
+    document.getElementById('btnLogout').style.display          = 'none';
+    document.getElementById('viewEditor').classList.remove('active');
+    document.getElementById('viewSelect').classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function goHome() { logout(); }
+
+  /* ── Toast ──────────────────────────────────────────── */
+  function showToast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    document.getElementById('toastIcon').textContent = type === 'success' ? '✅' : '❌';
+    document.getElementById('toastMsg').textContent  = msg;
+    el.className = `toast t-${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 4500);
+  }
+
+  /* ── Utils ──────────────────────────────────────────── */
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  /* Fechar modal ao clicar fora */
+  document.getElementById('overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  /* Iniciar */
+  init();
+</script>
+</body>
+</html>
