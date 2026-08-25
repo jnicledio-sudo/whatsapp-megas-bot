@@ -146,7 +146,6 @@ Por favor, **copie o texto da mensagem SMS** do M-Pesa ou E-Mola que recebeu e *
     const senderPhoneNumber = remoteJid.split('@')[0];
     const antiBanConfig = globalConfig.antiBan || {};
     const menu = sessionConfig.customMenu || globalConfig.defaultMenu;
-    const supportGroupJid = globalConfig.supportGroupJid;
 
     // Simulação de Digitação Humana Ultra-Rápida e Segura
     if (antiBanConfig.simulateTyping) {
