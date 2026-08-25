@@ -231,7 +231,7 @@ Seja muito bem-vindo(a) à *Almeida Net Shop*! 😊
 
 Pretende ver os nossos pacotes de megas disponíveis ou tem alguma dúvida? Fique à vontade para me dizer o que precisa!`;
 
-      await sock.sendMessage(remoteJid, { text: naturalGreeting }, { quoted: msg });
+      await sock.sendMessage(remoteJid, { text: naturalGreeting });
 
     } else {
       // =========================================================================
@@ -239,14 +239,13 @@ Pretende ver os nossos pacotes de megas disponíveis ou tem alguma dúvida? Fiqu
       // =========================================================================
       logger.info(`[${sessionConfig.name}] Enviando pacotes para +${senderPhoneNumber}`);
 
-      const msg1 = `Com certeza! Aqui estão os nossos pacotes de internet disponíveis com os melhores preços:\n\n${menu.packagesTable}`;
-      await sock.sendMessage(remoteJid, { text: msg1 }, { quoted: msg });
+      const msg1 = `Com certeza! Aqui estão os nossos pacotes de internet disponíveis com os melhores preços:\n\n${menu.packagesTable || ''}`;
+      await sock.sendMessage(remoteJid, { text: msg1 });
 
-      await sock.sendPresenceUpdate('composing', remoteJid);
-      await sleep(getRandomDelay(1500, 2500));
+      await sleep(1000);
 
       const paymentAndOrderText = 
-`${menu.paymentMethods}
+`${menu.paymentMethods || ''}
 
 📲 *Como finalizar o seu pedido:*
 Assim que fizer o pagamento, envie aqui o *comprovativo em texto* junto com o *número de telefone* onde pretende receber os megas! 
@@ -256,9 +255,16 @@ A nossa activação é super rápida! 🚀 Qualquer dúvida, estou por aqui.`;
       await sock.sendMessage(remoteJid, { text: paymentAndOrderText });
     }
 
-    await sock.sendPresenceUpdate('paused', remoteJid);
-
   } catch (error) {
     logger.error(`[${sessionConfig.name}] Erro ao processar mensagem:`, error);
+  } finally {
+    try {
+      const remoteJid = msg.key?.remoteJid;
+      if (remoteJid) {
+        await sock.sendPresenceUpdate('paused', remoteJid);
+      }
+    } catch (e) {
+      // ignorar
+    }
   }
 }
