@@ -112,13 +112,13 @@ Muito obrigado pela preferência na *Almeida Net Shop*! 😊`;
         // 2. Encaminhar Pedido Completo ao Grupo de Atendimento
         if (supportGroupJid && supportGroupJid.includes('@g.us')) {
           const groupNotification =
-`📩 *NOVO PEDIDO COMPLETO RECEBIDO!*
+`📩 *NOVA ENCOMENDA RECEBIDA!*
 
 📱 *Canal de Entrada:* ${sessionConfig.name}
 👤 *Cliente:* https://wa.me/${senderPhoneNumber} (+${senderPhoneNumber})
 📲 *NÚMERO DE DESTINO (RECEBER MEGAS):* +258 ${destinationNumber}
 ${pendingData.proofInfo.amount ? `💰 *Valor:* ${pendingData.proofInfo.amount}\n` : ''}${pendingData.proofInfo.transactionCode ? `🔑 *Código:* ${pendingData.proofInfo.transactionCode}\n` : ''}
-📄 *Comprovativo de Pagamento:*
+📄 *Comprovativo de Transferência:*
 \`\`\`
 ${pendingData.proofText}
 \`\`\`
@@ -148,7 +148,7 @@ _(Mesmo que seja para este seu próprio número de onde fala, confirme-o aqui)._
     }
 
     // =========================================================================
-    // CENÁRIO B: RECEBIMENTO DE NOVO COMPROVATIVO DE PAGAMENTO
+    // CENÁRIO B: RECEBIMENTO DE NOVO COMPROVATIVO DE TRANSFERÊNCIA
     // =========================================================================
     if (isProof) {
       logger.info(`[${sessionConfig.name}] 💸 Comprovativo detectado de +${senderPhoneNumber}!`);
@@ -166,17 +166,17 @@ A sua encomenda foi encaminhada para a nossa equipa. A activação dos seus mega
 
 Muito obrigado pela preferência na *Almeida Net Shop*! 😊`;
 
-        await sock.sendMessage(remoteJid, { text: successMsg }, { quoted: msg });
+        await sock.sendMessage(remoteJid, { text: successMsg });
 
         if (supportGroupJid && supportGroupJid.includes('@g.us')) {
           const groupNotification =
-`📩 *NOVO PEDIDO COMPLETO RECEBIDO!*
+`📩 *NOVA ENCOMENDA RECEBIDA!*
 
 📱 *Canal:* ${sessionConfig.name}
 👤 *Cliente:* https://wa.me/${senderPhoneNumber} (+${senderPhoneNumber})
 📲 *NÚMERO DE DESTINO (RECEBER MEGAS):* +258 ${destinationNumber}
 ${proofInfo.amount ? `💰 *Valor:* ${proofInfo.amount}\n` : ''}${proofInfo.transactionCode ? `🔑 *Código:* ${proofInfo.transactionCode}\n` : ''}
-📄 *Texto do Cliente:*
+📄 *Comprovativo de Transferência:*
 \`\`\`
 ${messageText}
 \`\`\`
