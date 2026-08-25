@@ -7,6 +7,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // Mapa em memória para guardar comprovativos pendentes que aguardam o número de destino
 const pendingProofs = new Map();
 
+// Mapa para rastrear pedidos ativos e notificar o cliente certo quando a ativação for confirmada no grupo
+// Chave: número de destino (ex: 842637783) -> Valor: { clientJid, clientPhone, timestamp }
+const activeOrders = new Map();
+
 /**
  * Procura um número de telefone de Moçambique no texto (Vodacom: 84/85, TMCEL: 82/83, Movitel: 86/87)
  * @param {string} text 
@@ -14,10 +18,7 @@ const pendingProofs = new Map();
  */
 function extractMozPhone(text) {
   if (!text) return null;
-  // Limpar espaços, hífens e pontos entre dígitos
   const clean = text.replace(/[\s\-\.]/g, '');
-  
-  // Procura padrão +2588XXXXXXXX ou 2588XXXXXXXX ou 8XXXXXXXX
   const match = clean.match(/(?:(?:\+?258)|(?:\b))(8[2-7]\d{7})\b/);
   if (match && match[1]) {
     return match[1];
@@ -45,23 +46,101 @@ export async function handleIncomingMessage(sock, msg, sessionConfig, globalConf
     // Se for mensagem de status ou broadcast, ignorar
     if (remoteJid === 'status@broadcast' || remoteJid.endsWith('@newsletter')) return;
 
-    // Se for mensagem de um Grupo de WhatsApp, verificar se é o grupo de suporte ou grupo normal
     const isGroup = remoteJid.endsWith('@g.us');
-    
-    // Se o bot estiver no grupo de suporte e alguém digitar "!jid", ele responde mostrando o JID do Grupo
+    const supportGroupJid = globalConfig.supportGroupJid;
+
+    // =========================================================================
+    // TRATAMENTO DE MENSAGENS DO GRUPO (CONFIRMAÇÃO AUTOMÁTICA DE ATIVAÇÃO)
+    // =========================================================================
     if (isGroup) {
-      const textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-      if (textMessage.trim().toLowerCase() === '!jid') {
+      const groupText = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+
+      // Comando !jid no grupo
+      if (groupText.trim().toLowerCase() === '!jid') {
         logger.info(`[${sessionConfig.name}] Comando !jid recebido no grupo: ${remoteJid}`);
         await sock.sendMessage(remoteJid, {
           text: `📌 *ID DESTE GRUPO (JID):*\n\`\`\`${remoteJid}\`\`\`\n\nCopia este ID e cola no ficheiro \`config/bot_config.json\` no campo \`supportGroupJid\`!`
         });
+        return;
       }
+
+      // Detectar mensagem de confirmação de transferência do bot de megas
+      // Estrutura esperada: "Transação Concluída" / "Transferencia Processada" com Número e Megas
+      const isTransferSuccess = (
+        (groupText.includes('Transação Concluída') || groupText.includes('Transacao Concluida') || groupText.includes('Transferencia Processada') || groupText.includes('Transferência Processada')) &&
+        (groupText.includes('Número') || groupText.includes('Numero'))
+      );
+
+      if (isTransferSuccess) {
+        logger.info(`[${sessionConfig.name}] ⚡ Confirmação de transferência detectada no grupo!`);
+
+        // Extrair os campos da mensagem do bot
+        const phoneMatch = groupText.match(/(?:Número|Numero)[:* ]+([0-9]{8,12})/i);
+        const megasMatch = groupText.match(/(?:Megas|Pacote)[:* ]+([^\n*]+)/i);
+        const refMatch   = groupText.match(/(?:Referência|Referencia)[:* ]+([^\n*]+)/i);
+
+        const targetPhoneRaw = phoneMatch ? phoneMatch[1].trim() : null;
+        const targetMegas    = megasMatch ? megasMatch[1].trim() : 'Dados de Internet';
+        const targetRef      = refMatch ? refMatch[1].trim() : null;
+
+        if (targetPhoneRaw) {
+          const cleanPhone = targetPhoneRaw.replace(/^258/, '');
+          logger.info(`[${sessionConfig.name}] 🎯 Megas (${targetMegas}) transferidos para o número: +258 ${cleanPhone}`);
+
+          // Procurar o cliente correspondente na lista de pedidos
+          let clientJid = null;
+          if (activeOrders.has(cleanPhone)) {
+            clientJid = activeOrders.get(cleanPhone).clientJid;
+            activeOrders.delete(cleanPhone);
+          } else {
+            // Fallback: enviar diretamente para o número que recebeu os megas
+            clientJid = `258${cleanPhone}@s.whatsapp.net`;
+          }
+
+          // Mensagem calorosa de ativação com sucesso para o cliente
+          const clientSuccessNotification =
+`🎉 *OS SEUS MEGAS FORAM ACTIVADOS COM SUCESSO!* 🚀
+
+📦 *Pacote Ativado:* ${targetMegas}
+📲 *Número de Destino:* +258 ${cleanPhone}
+${targetRef ? `🔖 *Referência:* ${targetRef}\n` : ''}
+✨ Os seus dados de internet já estão disponíveis e prontos a usar!
+
+Muito obrigado por comprar com a *Almeida Net Shop*! Volte sempre! 😊🛍️`;
+
+          try {
+            await sock.sendMessage(clientJid, { text: clientSuccessNotification });
+            logger.info(`[${sessionConfig.name}] ✅ Mensagem de ativação enviada com sucesso para o cliente (${clientJid})!`);
+          } catch (err) {
+            logger.error(`[${sessionConfig.name}] Erro ao enviar confirmação de ativação ao cliente:`, err);
+          }
+        }
+      }
+
       return;
     }
 
-    // Obter o texto da mensagem enviada pelo cliente em conversa privada
+    // =========================================================================
+    // TRATAMENTO DE CONVERSAS PRIVADAS (CLIENTES)
+    // =========================================================================
+    const isImageMessage = !!(msg.message.imageMessage || msg.message.documentMessage);
     const messageText = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || '';
+
+    // Se o cliente enviou uma imagem/foto e não há texto de comprovativo
+    if (isImageMessage && !messageText.trim()) {
+      logger.info(`[${sessionConfig.name}] 📸 Imagem/Foto recebida de ${remoteJid.split('@')[0]} - Recusando formato de imagem.`);
+      
+      const imageRefusalMsg =
+`🚨 *ATENÇÃO: NÃO ACEITAMOS COMPROVATIVOS EM FORMATO DE IMAGEM / FOTO!* 📸❌
+
+Por favor, **copie o texto da mensagem SMS** do M-Pesa ou E-Mola que recebeu e **cole aqui em formato de texto** junto com o seu número de destino.
+
+💡 _Dica: Abra o aplicativo de Mensagens SMS do seu telefone, copie o texto da confirmação e envie para nós aqui!_ 🚀`;
+
+      await sock.sendMessage(remoteJid, { text: imageRefusalMsg }, { quoted: msg });
+      return;
+    }
+
     if (!messageText.trim()) return;
 
     const senderPhoneNumber = remoteJid.split('@')[0];
@@ -111,6 +190,12 @@ Muito obrigado pela preferência na *Almeida Net Shop*! 😊`;
 
         // 2. Encaminhar Pedido Completo ao Grupo de Atendimento
         if (supportGroupJid && supportGroupJid.includes('@g.us')) {
+          activeOrders.set(destinationNumber, {
+            clientJid: remoteJid,
+            clientPhone: senderPhoneNumber,
+            timestamp: Date.now()
+          });
+
           const groupNotification =
 `📩 *NOVA ENCOMENDA RECEBIDA!*
 
@@ -141,7 +226,7 @@ _Exemplo:_ *841234567* ou *871234567*
 
 _(Mesmo que seja para este seu próprio número de onde fala, confirme-o aqui)._`;
 
-        await sock.sendMessage(remoteJid, { text: askPhoneAgain }, { quoted: msg });
+        await sock.sendMessage(remoteJid, { text: askPhoneAgain });
         await sock.sendPresenceUpdate('paused', remoteJid);
         return;
       }
@@ -157,6 +242,12 @@ _(Mesmo que seja para este seu próprio número de onde fala, confirme-o aqui)._
 
       if (destinationNumber) {
         // O comprovativo JÁ veio acompanhado do número de destino no mesmo texto!
+        activeOrders.set(destinationNumber, {
+          clientJid: remoteJid,
+          clientPhone: senderPhoneNumber,
+          timestamp: Date.now()
+        });
+
         const successMsg =
 `✅ *COMPROVATIVO E NÚMERO RECEBIDOS COM SUCESSO!* 🚀
 
