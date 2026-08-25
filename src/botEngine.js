@@ -49,14 +49,30 @@ export async function handleIncomingMessage(sock, msg, sessionConfig, globalConf
 
     logger.info(`[${sessionConfig.name}] Mensagem recebida de +${senderPhoneNumber}: "${messageText.substring(0, 40)}..."`);
 
-    // 2. Verificar se a mensagem é um Comprovativo de Pagamento
+    // 2. Classificação de Intenção da Mensagem do Cliente
+    const cleanText = messageText.trim().toLowerCase();
     const proofKeywords = globalConfig.proofKeywords || [];
     const isProof = isPaymentProof(messageText, proofKeywords);
+
+    // Detecção de Saudações comuns
+    const greetingPatterns = [
+      /^(ol[aá]|oi|oii+|hey|boas|viva|opa|al[oô]|salve|hello|hi)\b/i,
+      /^(bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem|como\s*est[aá]|como\s*vai)\b/i
+    ];
+    const isGreeting = greetingPatterns.some((pattern) => pattern.test(cleanText));
+
+    // Detecção de Pedido de Tabela/Pacotes/Megas
+    const catalogKeywords = ['1', 'tabela', 'pacote', 'pacotes', 'megas', 'mega', 'preco', 'precos', 'preço', 'preços', 'dados', 'comprar', 'net', 'internet', 'valores', 'menu', 'vodacom', 'movitel', 'quero'];
+    const isCatalogRequest = catalogKeywords.some((kw) => cleanText === kw || cleanText.includes(kw));
+
+    // Detecção de Solicitação de Atendimento Humano / Dúvidas
+    const supportKeywords = ['2', 'atendente', 'humano', 'suporte', 'ajuda', 'operador', 'falar', 'duvida', 'dúvida'];
+    const isSupportRequest = supportKeywords.some((kw) => cleanText === kw || cleanText.startsWith(kw));
 
     // 3. Aplicação do Módulo Anti-Ban (Simulação de Digitação Humana)
     if (antiBanConfig.simulateTyping) {
       await sock.sendPresenceUpdate('composing', remoteJid);
-      const delayTime = getRandomDelay(antiBanConfig.minDelayMs || 2000, antiBanConfig.maxDelayMs || 5000);
+      const delayTime = getRandomDelay(antiBanConfig.minDelayMs || 1500, antiBanConfig.maxDelayMs || 3500);
       await sleep(delayTime);
     }
 
@@ -64,56 +80,110 @@ export async function handleIncomingMessage(sock, msg, sessionConfig, globalConf
     const supportGroupJid = globalConfig.supportGroupJid;
 
     if (isProof) {
-      // --- FLUXO DE COMPROVATIVO RECEBIDO ---
-      logger.info(`[${sessionConfig.name}] 💸 Comprovativo detectado do número +${senderPhoneNumber}!`);
+      // ==========================================
+      // CASO 1: COMPROVATIVO DE PAGAMENTO RECEBIDO
+      // ==========================================
+      logger.info(`[${sessionConfig.name}] 💸 Comprovativo detectado de +${senderPhoneNumber}!`);
 
-      // A) Resposta ao cliente
-      const ackMessage = menu.proofReceivedAck || "✅ Comprovativo recebido com sucesso!";
+      // Resposta imediata ao cliente
+      const ackMessage = menu.proofReceivedAck || "✅ *Comprovativo recebido com sucesso!*\n\nA sua mensagem foi encaminhada aos nossos atendentes para activação imediata dos megas. Por favor aguarde!";
       await sock.sendMessage(remoteJid, { text: ackMessage }, { quoted: msg });
 
-      // B) Reencaminhamento para o Grupo de Atendimento
+      // Reencaminhamento rico para o Grupo de Atendimento
       if (supportGroupJid && supportGroupJid.includes('@g.us')) {
         const proofInfo = parseProofDetails(messageText);
 
         const groupNotification = 
-`📩 *NOVO COMPROVATIVO RECEBIDO!*
+`📩 *NOVA ENCOMENDA / COMPROVATIVO RECEBIDO!*
 
-📱 *Canal de Entrada:* ${sessionConfig.name} (+${sock.user?.id?.split(':')[0] || 'Bot'})
+📱 *Canal de Entrada:* ${sessionConfig.name}
 👤 *Cliente:* https://wa.me/${senderPhoneNumber} (+${senderPhoneNumber})
 ${proofInfo.amount ? `💰 *Valor Detectado:* ${proofInfo.amount}\n` : ''}${proofInfo.transactionCode ? `🔑 *Código:* ${proofInfo.transactionCode}\n` : ''}
-📄 *Texto do Comprovativo:*
+📄 *Texto Enviado pelo Cliente (Comprovativo e Dados):*
 \`\`\`
 ${messageText}
 \`\`\`
 
-⚡ *Atendentes: Por favor, efetuar a ativação dos megas para este cliente!*`;
+⚡ *Atendentes: Por favor, efectuem a transferência dos megas para o número indicado!*`;
 
         await sock.sendMessage(supportGroupJid, { text: groupNotification });
-        logger.info(`[${sessionConfig.name}] ➡️ Comprovativo reencaminhado para o grupo (${supportGroupJid})!`);
-      } else {
-        logger.warn(`[${sessionConfig.name}] ⚠️ O Grupo de Atendimento ainda não está configurado! Adicione o bot a um grupo e digite !jid no grupo para pegar o ID.`);
+        logger.info(`[${sessionConfig.name}] ➡️ Encomenda reencaminhada para o grupo (${supportGroupJid})!`);
+      }
+
+    } else if (isGreeting && !isCatalogRequest) {
+      // ==========================================
+      // CASO 2: SAUDAÇÃO INICIAL (HUMANIZADA)
+      // ==========================================
+      logger.info(`[${sessionConfig.name}] Saudação recebida de +${senderPhoneNumber}`);
+
+      // Determinar período do dia
+      const hour = new Date().getHours() + 2; // fuso Moçambique (UTC+2)
+      let timeGreeting = "Olá";
+      if (hour >= 5 && hour < 12) timeGreeting = "Bom dia";
+      else if (hour >= 12 && hour < 18) timeGreeting = "Boa tarde";
+      else timeGreeting = "Boa noite";
+
+      const greetingReply =
+`👋 *${timeGreeting}! Tudo bem?*
+Seja muito bem-vindo(a) à *Almeida Net Shop*! 😊
+
+Como posso ajudar hoje?
+
+👉 *Digite 1* (ou *Tabela*) para ver a nossa Tabela de Pacotes de Internet & Preços
+👉 *Digite 2* para falar directamente com um atendente humano
+
+_Se já fez o pagamento, envie o comprovativo em texto junto com o número de destino para activação rápida!_ 🚀`;
+
+      await sock.sendMessage(remoteJid, { text: greetingReply }, { quoted: msg });
+
+    } else if (isSupportRequest && cleanText === '2') {
+      // ==========================================
+      // CASO 3: PEDIDO DE ATENDIMENTO HUMANO
+      // ==========================================
+      logger.info(`[${sessionConfig.name}] Pedido de suporte humano de +${senderPhoneNumber}`);
+
+      const supportReply =
+`👤 *Atendimento Humano Solicitado!*
+
+Um dos nossos assistentes foi notificado e responderá aqui em breve. 
+
+Por favor, escreva a sua dúvida ou necessidade abaixo para agilizar o atendimento! 👇`;
+
+      await sock.sendMessage(remoteJid, { text: supportReply }, { quoted: msg });
+
+      if (supportGroupJid && supportGroupJid.includes('@g.us')) {
+        const helpNotification =
+`🔔 *SOLICITAÇÃO DE ATENDIMENTO HUMANO*
+
+📱 *Canal:* ${sessionConfig.name}
+👤 *Cliente:* https://wa.me/${senderPhoneNumber} (+${senderPhoneNumber})
+💬 *Mensagem:* "${messageText}"
+
+👉 *Por favor, atendam este cliente no privado!*`;
+        await sock.sendMessage(supportGroupJid, { text: helpNotification });
       }
 
     } else {
-      // --- FLUXO DE MENU E ATENDIMENTO ---
-      logger.info(`[${sessionConfig.name}] Enviando tabela de preços e menu para +${senderPhoneNumber}`);
+      // ==========================================
+      // CASO 4: TABELA DE PACOTES, PREÇOS E PEDIDO
+      // ==========================================
+      logger.info(`[${sessionConfig.name}] Enviando tabela e fluxo de pedido para +${senderPhoneNumber}`);
 
-      // Mensagem 1: Saudação + Cabeçalho + Tabela de Preços
-      const greeting = menu.greeting || "👋 *Olá! Seja muito bem-vindo(a) ao Atendimento Automático!*";
-      const msg1 = `${greeting}\n\n${menu.welcomeHeader}\n\n${menu.packagesTable}`;
+      // Mensagem 1: Cabeçalho e Tabela de Preços
+      const msg1 = `${menu.welcomeHeader}\n\n${menu.packagesTable}`;
       await sock.sendMessage(remoteJid, { text: msg1 }, { quoted: msg });
 
-      // Pequeno delay entre mensagens para parecer mais humano
+      // Intervalo humanizado
       await sock.sendPresenceUpdate('composing', remoteJid);
-      await sleep(getRandomDelay(1500, 3000));
+      await sleep(getRandomDelay(1500, 2500));
 
       // Mensagem 2: Formas de Pagamento
       await sock.sendMessage(remoteJid, { text: menu.paymentMethods });
 
-      // Mensagem 3: Instrução de envio do número de destino (se configurada)
+      // Mensagem 3: Instrução do Número de Destino
       if (menu.destinationRequest) {
         await sock.sendPresenceUpdate('composing', remoteJid);
-        await sleep(getRandomDelay(1200, 2500));
+        await sleep(getRandomDelay(1200, 2200));
         await sock.sendMessage(remoteJid, { text: menu.destinationRequest });
       }
     }
