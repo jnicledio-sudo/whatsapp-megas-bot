@@ -1,3 +1,9 @@
+import { isPaymentProof, parseProofDetails } from './utils/proofValidator.js';
+import { logger } from './utils/logger.js';
+
+const getRandomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Mapa em memória para guardar comprovativos pendentes que aguardam o número de destino
 const pendingProofs = new Map();
 
