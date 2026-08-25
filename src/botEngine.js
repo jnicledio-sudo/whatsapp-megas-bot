@@ -47,32 +47,28 @@ export async function handleIncomingMessage(sock, msg, sessionConfig, globalConf
     const senderPhoneNumber = remoteJid.split('@')[0];
     const antiBanConfig = globalConfig.antiBan || {};
 
-    logger.info(`[${sessionConfig.name}] Mensagem recebida de +${senderPhoneNumber}: "${messageText.substring(0, 40)}..."`);
-
-    // 2. Classificação de Intenção da Mensagem do Cliente
+    // 2. Classificação Natural da Conversa
     const cleanText = messageText.trim().toLowerCase();
     const proofKeywords = globalConfig.proofKeywords || [];
     const isProof = isPaymentProof(messageText, proofKeywords);
 
-    // Detecção de Saudações comuns
-    const greetingPatterns = [
-      /^(ol[aá]|oi|oii+|hey|boas|viva|opa|al[oô]|salve|hello|hi)\b/i,
-      /^(bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem|como\s*est[aá]|como\s*vai)\b/i
+    // Identificar saudações puras (quando a pessoa apenas cumprimenta)
+    const pureGreetingRegex = /^(ol[aá]|oi|oii+|hey|boas|viva|opa|al[oô]|salve|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem|tudo\s*bom|como\s*est[aá]|como\s*vai|boa|ola\s*tudo\s*bem|oi\s*tudo\s*bem)[!?.\s]*$/i;
+    const isPureGreeting = pureGreetingRegex.test(cleanText);
+
+    // Identificar intenção de comprar/ver megas de forma natural (ex: "quero megas", "sim", "manda", "tabela", "preço", "quanto custa", "tens megas?")
+    const interestKeywords = [
+      'mega', 'megas', 'pacote', 'pacotes', 'preco', 'precos', 'preço', 'preços',
+      'tabela', 'dados', 'net', 'internet', 'comprar', 'quero', 'manda', 'envia',
+      'mostra', 'quais', 'quanto', 'valor', 'valores', 'sim', 'bora', 'vodacom',
+      'movitel', 'tmcel', 'disponivel', 'disponível', 'promocao', 'promoção', 'gigas', 'gb', 'mb'
     ];
-    const isGreeting = greetingPatterns.some((pattern) => pattern.test(cleanText));
+    const isInterestedInPackages = interestKeywords.some((kw) => cleanText.includes(kw));
 
-    // Detecção de Pedido de Tabela/Pacotes/Megas
-    const catalogKeywords = ['1', 'tabela', 'pacote', 'pacotes', 'megas', 'mega', 'preco', 'precos', 'preço', 'preços', 'dados', 'comprar', 'net', 'internet', 'valores', 'menu', 'vodacom', 'movitel', 'quero'];
-    const isCatalogRequest = catalogKeywords.some((kw) => cleanText === kw || cleanText.includes(kw));
-
-    // Detecção de Solicitação de Atendimento Humano / Dúvidas
-    const supportKeywords = ['2', 'atendente', 'humano', 'suporte', 'ajuda', 'operador', 'falar', 'duvida', 'dúvida'];
-    const isSupportRequest = supportKeywords.some((kw) => cleanText === kw || cleanText.startsWith(kw));
-
-    // 3. Aplicação do Módulo Anti-Ban (Simulação de Digitação Humana)
+    // 3. Simulação de Digitação Humana
     if (antiBanConfig.simulateTyping) {
       await sock.sendPresenceUpdate('composing', remoteJid);
-      const delayTime = getRandomDelay(antiBanConfig.minDelayMs || 1500, antiBanConfig.maxDelayMs || 3500);
+      const delayTime = getRandomDelay(antiBanConfig.minDelayMs || 1500, antiBanConfig.maxDelayMs || 3000);
       await sleep(delayTime);
     }
 
@@ -80,112 +76,86 @@ export async function handleIncomingMessage(sock, msg, sessionConfig, globalConf
     const supportGroupJid = globalConfig.supportGroupJid;
 
     if (isProof) {
-      // ==========================================
-      // CASO 1: COMPROVATIVO DE PAGAMENTO RECEBIDO
-      // ==========================================
-      logger.info(`[${sessionConfig.name}] 💸 Comprovativo detectado de +${senderPhoneNumber}!`);
+      // =======================================================
+      // CASO 1: COMPROVATIVO DE PAGAMENTO / PEDIDO ENVIADO
+      // =======================================================
+      logger.info(`[${sessionConfig.name}] 💸 Comprovativo recebido de +${senderPhoneNumber}!`);
 
-      // Resposta imediata ao cliente
-      const ackMessage = menu.proofReceivedAck || "✅ *Comprovativo recebido com sucesso!*\n\nA sua mensagem foi encaminhada aos nossos atendentes para activação imediata dos megas. Por favor aguarde!";
+      const ackMessage = menu.proofReceivedAck || 
+`✅ *Perfeito, comprovativo recebido!*
+
+Já encaminhei os seus dados para a nossa equipa. A activação dos seus megas será feita em instantes! 🚀
+
+Por favor aguarde um momento. Muito obrigado pela preferência! 😊`;
+
       await sock.sendMessage(remoteJid, { text: ackMessage }, { quoted: msg });
 
-      // Reencaminhamento rico para o Grupo de Atendimento
+      // Notificar o grupo de atendimento
       if (supportGroupJid && supportGroupJid.includes('@g.us')) {
         const proofInfo = parseProofDetails(messageText);
 
         const groupNotification = 
-`📩 *NOVA ENCOMENDA / COMPROVATIVO RECEBIDO!*
+`📩 *NOVO PEDIDO / COMPROVATIVO RECEBIDO!*
 
-📱 *Canal de Entrada:* ${sessionConfig.name}
+📱 *Canal:* ${sessionConfig.name}
 👤 *Cliente:* https://wa.me/${senderPhoneNumber} (+${senderPhoneNumber})
-${proofInfo.amount ? `💰 *Valor Detectado:* ${proofInfo.amount}\n` : ''}${proofInfo.transactionCode ? `🔑 *Código:* ${proofInfo.transactionCode}\n` : ''}
-📄 *Texto Enviado pelo Cliente (Comprovativo e Dados):*
+${proofInfo.amount ? `💰 *Valor:* ${proofInfo.amount}\n` : ''}${proofInfo.transactionCode ? `🔑 *Código:* ${proofInfo.transactionCode}\n` : ''}
+📄 *Texto do Cliente:*
 \`\`\`
 ${messageText}
 \`\`\`
 
-⚡ *Atendentes: Por favor, efectuem a transferência dos megas para o número indicado!*`;
+⚡ *Por favor, efectuem a transferência dos megas para o número indicado!*`;
 
         await sock.sendMessage(supportGroupJid, { text: groupNotification });
-        logger.info(`[${sessionConfig.name}] ➡️ Encomenda reencaminhada para o grupo (${supportGroupJid})!`);
+        logger.info(`[${sessionConfig.name}] ➡️ Notificação enviada ao grupo!`);
       }
 
-    } else if (isGreeting && !isCatalogRequest) {
-      // ==========================================
-      // CASO 2: SAUDAÇÃO INICIAL (HUMANIZADA)
-      // ==========================================
-      logger.info(`[${sessionConfig.name}] Saudação recebida de +${senderPhoneNumber}`);
+    } else if (isPureGreeting && !isInterestedInPackages) {
+      // =======================================================
+      // CASO 2: SAUDAÇÃO NATURAL E ACOLHEDORA (SEM MENUS ROBÓTICOS)
+      // =======================================================
+      logger.info(`[${sessionConfig.name}] Saudação natural de +${senderPhoneNumber}`);
 
-      // Determinar período do dia
-      const hour = new Date().getHours() + 2; // fuso Moçambique (UTC+2)
+      const hour = new Date().getHours() + 2; // Horário de Moçambique (UTC+2)
       let timeGreeting = "Olá";
       if (hour >= 5 && hour < 12) timeGreeting = "Bom dia";
       else if (hour >= 12 && hour < 18) timeGreeting = "Boa tarde";
       else timeGreeting = "Boa noite";
 
-      const greetingReply =
-`👋 *${timeGreeting}! Tudo bem?*
+      const naturalGreeting =
+`👋 *${timeGreeting}! Tudo bem por aí?*
+
 Seja muito bem-vindo(a) à *Almeida Net Shop*! 😊
 
-Como posso ajudar hoje?
+Pretende ver os nossos pacotes de megas disponíveis ou tem alguma dúvida? Fique à vontade para me dizer o que precisa!`;
 
-👉 *Digite 1* (ou *Tabela*) para ver a nossa Tabela de Pacotes de Internet & Preços
-👉 *Digite 2* para falar directamente com um atendente humano
-
-_Se já fez o pagamento, envie o comprovativo em texto junto com o número de destino para activação rápida!_ 🚀`;
-
-      await sock.sendMessage(remoteJid, { text: greetingReply }, { quoted: msg });
-
-    } else if (isSupportRequest && cleanText === '2') {
-      // ==========================================
-      // CASO 3: PEDIDO DE ATENDIMENTO HUMANO
-      // ==========================================
-      logger.info(`[${sessionConfig.name}] Pedido de suporte humano de +${senderPhoneNumber}`);
-
-      const supportReply =
-`👤 *Atendimento Humano Solicitado!*
-
-Um dos nossos assistentes foi notificado e responderá aqui em breve. 
-
-Por favor, escreva a sua dúvida ou necessidade abaixo para agilizar o atendimento! 👇`;
-
-      await sock.sendMessage(remoteJid, { text: supportReply }, { quoted: msg });
-
-      if (supportGroupJid && supportGroupJid.includes('@g.us')) {
-        const helpNotification =
-`🔔 *SOLICITAÇÃO DE ATENDIMENTO HUMANO*
-
-📱 *Canal:* ${sessionConfig.name}
-👤 *Cliente:* https://wa.me/${senderPhoneNumber} (+${senderPhoneNumber})
-💬 *Mensagem:* "${messageText}"
-
-👉 *Por favor, atendam este cliente no privado!*`;
-        await sock.sendMessage(supportGroupJid, { text: helpNotification });
-      }
+      await sock.sendMessage(remoteJid, { text: naturalGreeting }, { quoted: msg });
 
     } else {
-      // ==========================================
-      // CASO 4: TABELA DE PACOTES, PREÇOS E PEDIDO
-      // ==========================================
-      logger.info(`[${sessionConfig.name}] Enviando tabela e fluxo de pedido para +${senderPhoneNumber}`);
+      // =======================================================
+      // CASO 3: APRESENTAÇÃO DOS PACOTES E INSTRUÇÃO NATURAL
+      // =======================================================
+      logger.info(`[${sessionConfig.name}] Enviando pacotes de forma natural para +${senderPhoneNumber}`);
 
-      // Mensagem 1: Cabeçalho e Tabela de Preços
-      const msg1 = `${menu.welcomeHeader}\n\n${menu.packagesTable}`;
+      // Mensagem 1: Apresentação acolhedora + Tabela de Pacotes
+      const msg1 = `Com certeza! Aqui estão os nossos pacotes de internet disponíveis com os melhores preços:\n\n${menu.packagesTable}`;
       await sock.sendMessage(remoteJid, { text: msg1 }, { quoted: msg });
 
-      // Intervalo humanizado
+      // Pequena pausa natural
       await sock.sendPresenceUpdate('composing', remoteJid);
       await sleep(getRandomDelay(1500, 2500));
 
-      // Mensagem 2: Formas de Pagamento
-      await sock.sendMessage(remoteJid, { text: menu.paymentMethods });
+      // Mensagem 2: Formas de Pagamento e como finalizar
+      const paymentAndOrderText = 
+`${menu.paymentMethods}
 
-      // Mensagem 3: Instrução do Número de Destino
-      if (menu.destinationRequest) {
-        await sock.sendPresenceUpdate('composing', remoteJid);
-        await sleep(getRandomDelay(1200, 2200));
-        await sock.sendMessage(remoteJid, { text: menu.destinationRequest });
-      }
+📲 *Como finalizar o seu pedido:*
+Assim que fizer o pagamento, envie aqui o *comprovativo em texto* junto com o *número de telefone* onde pretende receber os megas! 
+
+A nossa activação é super rápida! 🚀 Qualquer dúvida, estou por aqui.`;
+
+      await sock.sendMessage(remoteJid, { text: paymentAndOrderText });
     }
 
 
