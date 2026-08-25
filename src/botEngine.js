@@ -137,7 +137,7 @@ Por favor, **copie o texto da mensagem SMS** do M-Pesa ou E-Mola que recebeu e *
 
 💡 _Dica: Abra o aplicativo de Mensagens SMS do seu telefone, copie o texto da confirmação e envie para nós aqui!_ 🚀`;
 
-      await sock.sendMessage(remoteJid, { text: imageRefusalMsg }, { quoted: msg });
+      await sock.sendMessage(remoteJid, { text: imageRefusalMsg });
       return;
     }
 
@@ -186,7 +186,7 @@ Os seus dados e comprovativo foram encaminhados agora para a nossa equipa. A act
 
 Muito obrigado pela preferência na *Almeida Net Shop*! 😊`;
 
-        await sock.sendMessage(remoteJid, { text: confirmationReply }, { quoted: msg });
+        await sock.sendMessage(remoteJid, { text: confirmationReply });
 
         // 2. Encaminhar Pedido Completo ao Grupo de Atendimento
         if (supportGroupJid && supportGroupJid.includes('@g.us')) {
