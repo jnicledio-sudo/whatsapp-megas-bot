@@ -63,11 +63,15 @@ export async function handleIncomingMessage(sock, msg, sessionConfig, globalConf
     const menu = sessionConfig.customMenu || globalConfig.defaultMenu;
     const supportGroupJid = globalConfig.supportGroupJid;
 
-    // Simulação de Digitação Humana
+    // Simulação de Digitação Humana Ultra-Rápida e Segura
     if (antiBanConfig.simulateTyping) {
-      await sock.sendPresenceUpdate('composing', remoteJid);
-      const delayTime = getRandomDelay(antiBanConfig.minDelayMs || 1500, antiBanConfig.maxDelayMs || 2800);
-      await sleep(delayTime);
+      try {
+        await sock.sendPresenceUpdate('composing', remoteJid);
+        const delayTime = getRandomDelay(antiBanConfig.minDelayMs || 800, antiBanConfig.maxDelayMs || 1600);
+        await sleep(delayTime);
+      } catch (e) {
+        // Ignorar se falhar presença
+      }
     }
 
     const cleanText = messageText.trim().toLowerCase();
