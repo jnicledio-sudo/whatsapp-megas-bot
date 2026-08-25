@@ -1,6 +1,6 @@
 {
   "globalSettings": {
-    "supportGroupJid": "SUBSTITUIR_PELO_JID_DO_GRUPO@g.us",
+    "supportGroupJid": "120363428924331312@g.us",
     "antiBan": {
       "minDelayMs": 2500,
       "maxDelayMs": 5000,
@@ -31,7 +31,8 @@
       "welcomeHeader": "GRUPO ABERTO 24H – NÃO FECHAMOS! 🔥\nAtendimento Automático, Rápido e Eficaz 🥳🥳✨\n(*Super Promoção*)",
       "packagesTable": "💎 SOLUÇÕES DE DADOS A PREÇOS IMBATÍVEIS 💎\n\n\n🌐400MB = 10MT\n🌐512MB = 13MT\n🌐650MB = 17MT\n🌐800MB = 20MT\n🌐 1100MB = 25MT\n🌐1200MB = 28MT\n🌐1600MB = 40MT\n🌐 2200MB = 50MT\n🌐 3300MB = 75MT\n🌐 4400MB = 100MT\n🌐 5500MB = 125MT\n🌐 6600MB = 150MT\n🌐 7700MB = 175MT\n🌐 8800MB = 200MT\n🌐 9900MB = 225MT\n🌐 10240MB = 245MT\n\n📅 PACOTES PREMIUM (2 Dias – Renováveis)\n2000MB = 55MT 💵💽\n3000MB = 79MT 💵💽\n4000MB = 107MT 💵💽\n5000MB = 140MT 💵💽\n6000MB = 170MT 💵💽\n\n🔄 Bônus: 100MB extra ao atualizar dentro de 2 dias\n\n📅 PACOTES 7 DIAS:\n1741MB = 49 MT\n2970MB = 88 MT\n3482MB = 97 MT\n5325MB = 145 MT\n7270MB = 199 MT\n\n📱🌐MENSAL [30 Dias]⬇\n\n🌐 2.8GB = 95MT   💠\n🌐 5.8GB = 195MT   💠\n🌐 7.8GB = 210MT   💠\n🌐 10.8GB = 320MT 💠\n🌐 17.8GB = 480MT 💠\n🌐 20.8GB = 575MT 💠\n🌐 32.8GB = 850MT\n\n💎 PACOTES DIAMANTE MENSAIS\nChamadas + SMS ilimitadas + 11GB = 450MT 💵\nChamadas + SMS ilimitadas + 15GB = 580MT 💵\nChamadas + SMS ilimitadas + 21GB = 720MT 💵\nChamadas + SMS ilimitadas + 30GB = 970MT 💵\nChamadas + SMS ilimitadas + 50GB = 1490MT 💵\n📍 NB: Válido apenas para Vodacom\n📍 Para o Pacote Mensal e Diamante, não deve ter Txuna crédito ativo!",
       "paymentMethods": "FORMAS DE PAGAMENTO💰💶\n\n💵 M-Pesa: 851923280 (Almeida Vasco)\n\n💵 E-Mola: 872685743 (Almeida Vasco)\n\n📮 Após a transferência envie o comprovante em formato de texto junto com seu número.\n\n🚨 Não mande comprovativo em formato de imagem 📸🚨\n\n🚨 Não mande valor que não tem na tabela🚨\n\n🚀 O futuro é agora! Vamos? 🔥🛒",
-      "proofReceivedAck": "✅ *Comprovativo recebido com sucesso!*\n\n📨 A sua mensagem de confirmação foi encaminhada para os nossos assistentes. A activação do seu pacote será feita em instantes!\n\n⏳ Por favor aguarde, não é necessário reenviar o comprovativo."
+      "proofReceivedAck": "✅ *Comprovativo recebido com sucesso!*\n\n📨 A sua mensagem de confirmação foi encaminhada para os nossos assistentes. A activação do seu pacote será feita em instantes!\n\n⏳ Por favor aguarde, não é necessário reenviar o comprovativo.",
+      "destinationRequest": "📲 *ÚLTIMO PASSO PARA FAZER O SEU PEDIDO:*\n\nPor favor, responda com o *nome do pacote* escolhido e o *número de telemóvel* para onde os dados devem ser transferidos.\n\n_Exemplo:_ *500MB + 258841234567*\n\n_(O número de destino pode ser o seu próprio número ou o de outra pessoa)_ 😊"
     }
   },
   "sessions": [

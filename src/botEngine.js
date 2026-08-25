@@ -109,6 +109,13 @@ ${messageText}
 
       // Mensagem 2: Formas de Pagamento
       await sock.sendMessage(remoteJid, { text: menu.paymentMethods });
+
+      // Mensagem 3: Instrução de envio do número de destino (se configurada)
+      if (menu.destinationRequest) {
+        await sock.sendPresenceUpdate('composing', remoteJid);
+        await sleep(getRandomDelay(1200, 2500));
+        await sock.sendMessage(remoteJid, { text: menu.destinationRequest });
+      }
     }
 
 
