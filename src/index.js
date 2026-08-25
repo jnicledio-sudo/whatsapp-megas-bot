@@ -4,7 +4,11 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import express from 'express';
 import { logger } from './utils/logger.js';
-import { startWhatsAppSession } from './sessionManager.js';
+import {
+  startWhatsAppSession,
+  getSessionState,
+  requestNewSessionQR
+} from './sessionManager.js';
 import {
   loadConfig,
   getConfig,
@@ -62,16 +66,54 @@ async function main() {
     });
   });
 
-  // ── API: Listar sessões (sem dados sensíveis) ──────────────────────
+  // ── API: Listar sessões (com status em tempo real) ──────────────────────
   app.get('/api/sessions', (_req, res) => {
     const cfg = getConfig();
-    const publicSessions = cfg.sessions.map(s => ({
-      id: s.id,
-      name: s.name,
-      enabled: s.enabled,
-      hasCustomMenu: !!s.customMenu
-    }));
+    const publicSessions = cfg.sessions.map(s => {
+      const state = getSessionState(s.id);
+      return {
+        id: s.id,
+        name: s.name,
+        enabled: s.enabled,
+        hasCustomMenu: !!s.customMenu,
+        status: state.status,
+        phone: state.phone
+      };
+    });
     res.json({ sessions: publicSessions });
+  });
+
+  // ── API: Obter Estado e QR Code em Tempo Real ──────────────────────
+  app.get('/api/session/:sessionId/status', (req, res) => {
+    const { sessionId } = req.params;
+    const state = getSessionState(sessionId);
+    res.json(state);
+  });
+
+  // ── API: Solicitar Novo QR Code / Reconectar WhatsApp ───────────────
+  app.post('/api/session/:sessionId/reconnect', async (req, res) => {
+    const { sessionId } = req.params;
+    const password = req.headers['x-session-password'] || req.body?.password;
+
+    if (!verifySessionPassword(sessionId, password)) {
+      return res.status(401).json({ error: 'Não autorizado. Senha incorreta.' });
+    }
+
+    const cfg = getConfig();
+    const session = cfg.sessions.find(s => s.id === sessionId);
+    if (!session) {
+      return res.status(404).json({ error: 'Sessão não encontrada.' });
+    }
+
+    try {
+      logger.info(`[API] 🔄 Requisição de reconexão autorizada para a sessão: ${sessionId}`);
+      // Iniciar reset e geração de QR code em segundo plano
+      requestNewSessionQR(sessionId, session, cfg.globalSettings || {});
+      res.json({ success: true, message: 'Processo de reconexão iniciado. O QR Code será gerado em instantes!' });
+    } catch (err) {
+      logger.error(`Erro ao solicitar novo QR Code para ${sessionId}:`, err);
+      res.status(500).json({ error: 'Erro ao gerar novo QR Code.' });
+    }
   });
 
   // ── API: Login / Verificar Senha ───────────────────────────────────

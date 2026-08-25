@@ -202,6 +202,75 @@
     }
     .session-card:hover .card-arrow { color: #a78bfa; transform: translateX(4px); }
 
+    /* ── CONNECTION & QR CODE CARD ─────────────── */
+    .connection-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.75rem;
+      transition: all 0.25s;
+    }
+    .conn-header {
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+    }
+    .conn-info { display: flex; align-items: center; gap: 1rem; }
+    .conn-badge {
+      display: flex; align-items: center; gap: 0.55rem;
+      font-size: 0.85rem; font-weight: 600;
+    }
+    .conn-phone {
+      font-size: 0.8rem; color: var(--text2);
+      background: rgba(255,255,255,0.05); padding: 0.2rem 0.6rem; border-radius: 8px;
+    }
+    .btn-reconnect {
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.35);
+      color: #c4b5fd;
+      padding: 0.5rem 1.1rem;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.8rem; font-weight: 600;
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      transition: all 0.2s;
+    }
+    .btn-reconnect:hover {
+      background: rgba(124,58,237,0.25);
+      border-color: #a78bfa;
+      transform: translateY(-1px);
+    }
+    .qr-container {
+      margin-top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .qr-box { max-width: 360px; margin: 0 auto; }
+    .qr-instruction {
+      font-size: 0.82rem; color: var(--text2); line-height: 1.5; margin-bottom: 1.1rem;
+    }
+    .qr-img-wrapper {
+      position: relative;
+      width: 250px; height: 250px;
+      margin: 0 auto 0.85rem;
+      background: #fff;
+      border-radius: 16px;
+      padding: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .qr-img-wrapper img { width: 100%; height: 100%; object-fit: contain; }
+    .qr-loader {
+      position: absolute; inset: 0;
+      background: rgba(15,15,26,0.92);
+      color: var(--text2);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.6rem; font-size: 0.8rem;
+    }
+    .qr-hint { font-size: 0.72rem; color: var(--muted); }
+
     /* ── EDITOR VIEW ─────────────────────────────── */
     .editor-head {
       margin-bottom: 2.5rem;
@@ -472,6 +541,39 @@
       <p>As alterações guardadas entram em vigor <strong>imediatamente</strong> — o bot passa a usar os novos textos sem necessidade de reiniciar.</p>
     </div>
 
+    <!-- ── CARD DE CONEXÃO WHATSAPP & QR CODE ────────────── -->
+    <div class="connection-card" id="connectionCard">
+      <div class="conn-header">
+        <div class="conn-info">
+          <div class="conn-badge" id="connBadge">
+            <span class="dot dot-off" id="connDot"></span>
+            <span id="connStatusText">A verificar estado...</span>
+          </div>
+          <div class="conn-phone" id="connPhone"></div>
+        </div>
+        <div class="conn-actions">
+          <button class="btn-reconnect" id="btnReqQR" onclick="requestNewQR()">
+            🔄 Gerar Novo QR Code
+          </button>
+        </div>
+      </div>
+
+      <!-- Caixa de Exibição do QR Code -->
+      <div class="qr-container" id="qrContainer" style="display: none;">
+        <div class="qr-box">
+          <p class="qr-instruction">📱 <strong>Abra o WhatsApp no celular:</strong><br>Aparelhos Conectados ➔ Conectar um Aparelho ➔ Aponte para a imagem abaixo:</p>
+          <div class="qr-img-wrapper" id="qrImgWrapper">
+            <img id="qrImage" src="" alt="QR Code WhatsApp" />
+            <div class="qr-loader" id="qrLoader">
+              <div class="spin"></div>
+              <span>A gerar QR Code...</span>
+            </div>
+          </div>
+          <p class="qr-hint">O QR Code é atualizado automaticamente a cada 20 segundos.</p>
+        </div>
+      </div>
+    </div>
+
     <div class="editors-grid">
       <!-- Editor 1: Tabela de Pacotes -->
       <div class="editor-card">
@@ -540,6 +642,7 @@
   let activePass   = null;
   let pendingSess  = null;   // sessão escolhida no card
   let toastTimer   = null;
+  let statusPoll   = null;   // timer de polling do status
 
   /* ── Arranque ───────────────────────────────────────── */
   async function init() {
@@ -568,13 +671,18 @@
       card.onclick = () => openModal(s);
       card.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') openModal(s); };
 
+      const isConnected = s.status === 'connected';
+      const statusText = isConnected 
+        ? `● Conectado (+${s.phone || 'OK'})`
+        : (s.status === 'qr_ready' ? '🟡 Aguarda QR Code' : (s.enabled ? '○ Desconectado' : '○ Inativo'));
+
       card.innerHTML = `
         <div class="card-top">
           <div class="card-num">${i + 1}</div>
-          <div class="dot ${s.enabled ? 'dot-on' : 'dot-off'}"></div>
+          <div class="dot ${isConnected ? 'dot-on' : 'dot-off'}"></div>
         </div>
         <div class="card-name">${escHtml(s.name)}</div>
-        <div class="card-status">${s.enabled ? '● Activo' : '○ Inactivo'}</div>
+        <div class="card-status">${statusText}</div>
         <div class="card-arrow">→</div>`;
       grid.appendChild(card);
     });
@@ -631,7 +739,7 @@
     }
   }
 
-  /* ── Editor ─────────────────────────────────────────── */
+  /* ── Editor & Conexão WhatsApp ──────────────────────── */
   function openEditor(menu) {
     const taP = document.getElementById('taPackages');
     const taY = document.getElementById('taPayment');
@@ -654,7 +762,107 @@
     document.getElementById('viewSelect').classList.remove('active');
     document.getElementById('viewEditor').classList.add('active');
 
+    // Iniciar monitoramento do status da conexão
+    checkSessionStatus();
+    clearInterval(statusPoll);
+    statusPoll = setInterval(checkSessionStatus, 3500);
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── Monitoramento do Status e QR Code ──────────────── */
+  async function checkSessionStatus() {
+    if (!activeSess) return;
+
+    try {
+      const r = await fetch(`${API}/api/session/${activeSess.id}/status`);
+      const data = await r.json();
+
+      const dot   = document.getElementById('connDot');
+      const text  = document.getElementById('connStatusText');
+      const phone = document.getElementById('connPhone');
+      const qrBox = document.getElementById('qrContainer');
+      const qrImg = document.getElementById('qrImage');
+      const qrLdr = document.getElementById('qrLoader');
+
+      if (data.status === 'connected') {
+        dot.className = 'dot dot-on';
+        text.textContent = '🟢 WhatsApp Conectado e Operacional';
+        text.style.color = '#10b981';
+        phone.textContent = data.phone ? `Número: +${data.phone}` : 'Ativo';
+        phone.style.display = 'inline-block';
+        qrBox.style.display = 'none';
+      } else if (data.status === 'qr_ready') {
+        dot.className = 'dot dot-off';
+        text.textContent = '🟡 Aguardando Leitura do QR Code';
+        text.style.color = '#fbbf24';
+        phone.style.display = 'none';
+        qrBox.style.display = 'block';
+
+        if (data.qrCodeDataUrl) {
+          qrImg.src = data.qrCodeDataUrl;
+          qrImg.style.display = 'block';
+          qrLdr.style.display = 'none';
+        }
+      } else if (data.status === 'connecting') {
+        dot.className = 'dot dot-off';
+        text.textContent = '🔄 A inicializar WhatsApp...';
+        text.style.color = '#93c5fd';
+        phone.style.display = 'none';
+        qrBox.style.display = 'block';
+        qrImg.style.display = 'none';
+        qrLdr.style.display = 'flex';
+      } else {
+        dot.className = 'dot dot-off';
+        text.textContent = '🔴 WhatsApp Desconectado / Desvinculado';
+        text.style.color = '#ef4444';
+        phone.style.display = 'none';
+        qrBox.style.display = 'none';
+      }
+    } catch {
+      // Falha silenciosa de polling
+    }
+  }
+
+  /* ── Solicitar Novo QR Code ─────────────────────────── */
+  async function requestNewQR() {
+    if (!activeSess || !activePass) return;
+
+    const btn = document.getElementById('btnReqQR');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spin"></div> A gerar...';
+
+    const qrBox = document.getElementById('qrContainer');
+    const qrImg = document.getElementById('qrImage');
+    const qrLdr = document.getElementById('qrLoader');
+
+    qrBox.style.display = 'block';
+    qrImg.style.display = 'none';
+    qrLdr.style.display = 'flex';
+
+    try {
+      const r = await fetch(`${API}/api/session/${activeSess.id}/reconnect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-password': activePass
+        }
+      });
+      const data = await r.json();
+
+      if (r.ok && data.success) {
+        showToast('A gerar novo QR Code. Aguarde...', 'success');
+        // Checar status imediatamente e a cada 2s
+        setTimeout(checkSessionStatus, 1500);
+      } else {
+        showToast(`Erro: ${data.error}`, 'error');
+      }
+    } catch {
+      showToast('Erro ao contactar o servidor.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🔄 Gerar Novo QR Code';
+    }
   }
 
   function updateCount(taId, countId) {
@@ -699,12 +907,14 @@
 
   /* ── Logout / Navegação ─────────────────────────────── */
   function logout() {
+    clearInterval(statusPoll);
     activeSess = null;
     activePass = null;
     document.getElementById('headerSessionBadge').style.display = 'none';
     document.getElementById('btnLogout').style.display          = 'none';
     document.getElementById('viewEditor').classList.remove('active');
     document.getElementById('viewSelect').classList.add('active');
+    init(); // recarregar cards
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
